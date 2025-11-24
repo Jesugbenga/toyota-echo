@@ -28,7 +28,7 @@ export default function InsightsConsole({ telemetryData, predictions, metrics })
         }
       }
 
-      const response = await fetch('/api/insights', {
+      const response = await fetch('/api/ask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,8 +43,8 @@ export default function InsightsConsole({ telemetryData, predictions, metrics })
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to get insights')
+        const errorData = await response.json().catch(() => ({ error: 'Failed to get insights' }))
+        throw new Error(errorData.error || errorData.detail || `Failed to get insights (${response.status})`)
       }
 
       const result = await response.json()

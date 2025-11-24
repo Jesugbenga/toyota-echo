@@ -1,27 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import DashboardLayout from '@/components/dashboard/DashboardLayout'
 import PredictionsPanel from '@/components/predictions/PredictionsPanel'
 import TelemetryExplorer from '@/components/telemetry/TelemetryExplorer'
 import InsightsConsole from '@/components/insights/InsightsConsole'
-import { generateMockTelemetryData, generateMockMetrics } from '@/lib/mockData'
+import BehaviorScorecard from '@/components/scorecard/BehaviorScorecard'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('predictions')
   const [telemetryData, setTelemetryData] = useState(null)
   const [predictions, setPredictions] = useState(null)
   const [metrics, setMetrics] = useState(null)
-
-  // Auto-load mock data on mount for demonstration
-  useEffect(() => {
-    const mockData = generateMockTelemetryData()
-    setTelemetryData(mockData)
-    
-    // Also set mock metrics for the scorecard
-    const mockMetrics = generateMockMetrics()
-    setMetrics(mockMetrics)
-  }, [])
 
   const handleDataUpload = (data) => {
     setTelemetryData(data)
@@ -45,7 +35,10 @@ export default function Home() {
           />
         )}
         {activeTab === 'analysis' && (
-          <TelemetryExplorer data={telemetryData} />
+          <div className="space-y-8">
+            <TelemetryExplorer data={telemetryData} />
+            <BehaviorScorecard data={telemetryData} onMetrics={handleMetrics} />
+          </div>
         )}
         {activeTab === 'insights' && (
           <InsightsConsole

@@ -22,19 +22,53 @@ export default function TelemetryExplorer({ data }) {
   const chartData = useMemo(() => {
     if (!data?.data || !Array.isArray(data.data)) return []
 
-    return data.data.map((record, index) => ({
-      index,
-      time: index,
-      speed: record.Speed || record.speed || 0,
-      throttle: record.ath || 0,
-      brake: (record.pbrake_f || 0) + (record.pbrake_r || 0),
-      steering: record.Steering_Angle || record.steering || 0,
-      accx: record.accx_can || 0,
-      accy: record.accy_can || 0,
-      acceleration: Math.sqrt(
-        Math.pow(record.accx_can || 0, 2) + Math.pow(record.accy_can || 0, 2)
-      ),
-    }))
+    return data.data.map((record, index) => {
+      // Use new calculated speed columns (in km/h, convert to mph for display)
+      // Priority: calculated_top_speed_kmh > raw_top_speed > calculated_avg_speed_kmh > raw_avg_speed > Speed > speed
+      let speed = 0
+      if (record.calculated_top_speed_kmh) {
+        speed = record.calculated_top_speed_kmh * 0.621371 // Convert km/h to mph
+      } else if (record.raw_top_speed) {
+        speed = record.raw_top_speed
+      } else if (record.calculated_avg_speed_kmh) {
+        speed = record.calculated_avg_speed_kmh * 0.621371 // Convert km/h to mph
+      } else if (record.raw_avg_speed) {
+        speed = record.raw_avg_speed
+      } else if (record.Speed || record.speed) {
+        speed = record.Speed || record.speed
+      } else if (record.Speed_mean) {
+        speed = record.Speed_mean
+      } else if (record.nmot_mean && record.gear_mean && record.gear_mean > 0) {
+        // Fallback: Estimate from RPM and gear
+        speed = (record.nmot_mean / (record.gear_mean * 100)) * 0.6
+        speed = Math.max(30, Math.min(150, speed))
+      } else if (record.actual_lap_time && record.track_length) {
+        // Fallback: Estimate from lap time
+        speed = (record.track_length / record.actual_lap_time) * 3600
+        speed = Math.max(30, Math.min(150, speed))
+      }
+      
+      // Use raw values if available, otherwise fall back to aggregated
+      const throttle = record.raw_ath_mean || record.ath_mean || record.ath || 0
+      const brakeF = record.raw_pbrake_f_mean || record.pbrake_f_mean || record.pbrake_f || 0
+      const brakeR = record.raw_pbrake_r_mean || record.pbrake_r_mean || record.pbrake_r || 0
+      const steering = record.raw_Steering_Angle_mean || record.Steering_Angle_mean || record.Steering_Angle || record.steering || 0
+      // Use max values for acceleration to show peak forces, prefer raw if available
+      const accx = record.raw_accx_can_mean || record.accx_can_max || record.accx_can_mean || record.accx_can || 0
+      const accy = record.raw_accy_can_mean || record.accy_can_max || record.accy_can_mean || record.accy_can || 0
+      
+      return {
+        index,
+        time: index,
+        speed,
+        throttle,
+        brake: brakeF + brakeR,
+        steering,
+        accx,
+        accy,
+        acceleration: Math.sqrt(accx * accx + accy * accy),
+      }
+    })
   }, [data])
 
   if (!data) {

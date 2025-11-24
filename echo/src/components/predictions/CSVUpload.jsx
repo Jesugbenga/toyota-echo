@@ -27,8 +27,8 @@ export default function CSVUpload({ onUploadSuccess }) {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Upload failed')
+        const errorData = await response.json().catch(() => ({ error: 'Upload failed' }))
+        throw new Error(errorData.error || errorData.detail || 'Upload failed')
       }
 
       const data = await response.json()
