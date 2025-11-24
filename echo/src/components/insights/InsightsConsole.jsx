@@ -1,14 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, Loader2, MessageSquare, Sparkles, AlertCircle, Brain } from 'lucide-react'
+import { Send, Loader2, MessageSquare, AlertCircle, Brain } from 'lucide-react'
 
 export default function InsightsConsole({ telemetryData, predictions, metrics }) {
   const [question, setQuestion] = useState('')
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [keyFindings, setKeyFindings] = useState([])
 
   const handleAsk = async () => {
     if (!question.trim()) return
@@ -52,11 +51,9 @@ export default function InsightsConsole({ telemetryData, predictions, metrics })
       const aiMessage = {
         role: 'assistant',
         content: result.response,
-        keyFindings: result.key_findings || [],
       }
 
       setMessages((prev) => [...prev, aiMessage])
-      setKeyFindings(result.key_findings || [])
       setQuestion('')
     } catch (err) {
       setError(err.message)
@@ -98,24 +95,6 @@ export default function InsightsConsole({ telemetryData, predictions, metrics })
         </div>
       </div>
 
-      {/* Key Findings Panel */}
-      {keyFindings.length > 0 && (
-        <div className="glossy-card rounded-2xl p-6 border-2 border-f1-yellow/30 bg-gradient-to-br from-f1-yellow/10 to-transparent">
-          <div className="flex items-center space-x-3 mb-4">
-            <Sparkles className="w-6 h-6 text-f1-yellow" />
-            <h3 className="text-lg font-orbitron text-f1-yellow uppercase tracking-wider">Key Findings</h3>
-          </div>
-          <ul className="space-y-2">
-            {keyFindings.map((finding, index) => (
-              <li key={index} className="flex items-start space-x-3 text-sm text-gray-300">
-                <span className="text-f1-yellow mt-1 font-bold">•</span>
-                <span>{finding}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       {/* Chat Interface */}
       <div className="glossy-card rounded-2xl flex flex-col border border-white/10" style={{ height: '600px' }}>
         {/* Messages */}
@@ -151,7 +130,41 @@ export default function InsightsConsole({ telemetryData, predictions, metrics })
                       : 'glossy-card text-gray-200 border border-f1-yellow/20'
                   }`}
                 >
-                  <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+                  <div className="text-sm leading-relaxed space-y-3">
+                    {message.content.split(/\n\n+/).map((paragraph, idx) => {
+                      const trimmed = paragraph.trim()
+                      if (!trimmed) return null
+                      
+                      // Split by single newlines to handle mixed content
+                      const lines = trimmed.split('\n')
+                      
+                      return (
+                        <div key={idx} className="space-y-2">
+                          {lines.map((line, lineIdx) => {
+                            const lineTrimmed = line.trim()
+                            if (!lineTrimmed) return null
+                            
+                            // Check if it's a bullet point
+                            if (lineTrimmed.match(/^[-•*]\s+/) || lineTrimmed.match(/^\d+\.\s+/)) {
+                              return (
+                                <div key={lineIdx} className="flex items-start space-x-2 pl-2">
+                                  <span className="text-f1-yellow mt-1 flex-shrink-0">•</span>
+                                  <span className="text-gray-200">{lineTrimmed.replace(/^[-•*]\s+/, '').replace(/^\d+\.\s+/, '')}</span>
+                                </div>
+                              )
+                            }
+                            
+                            // Regular paragraph line
+                            return (
+                              <p key={lineIdx} className="text-gray-200">
+                                {lineTrimmed}
+                              </p>
+                            )
+                          })}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             ))

@@ -7,6 +7,9 @@
 import { NextResponse } from 'next/server'
 
 function buildPrompt(query) {
+  const question = (query.question || '').toLowerCase().trim()
+  const isSimpleQuestion = question.length < 50 && !question.includes('compare') && !question.includes('analyze') && !question.includes('comprehensive')
+  
   const parts = [
     'You are RaceIQ, an expert AI race engineer and performance analyst.',
     'Your role is to analyze racing telemetry data and provide actionable insights.',
@@ -44,19 +47,33 @@ function buildPrompt(query) {
     )
   }
   
-  parts.push(
-    '=== INSTRUCTIONS ===',
-    'Provide a comprehensive analysis that includes:',
-    '1. Direct answer to the user\'s question',
-    '2. Key findings from the data',
-    '3. Specific, actionable recommendations',
-    '4. Numerical insights where relevant',
-    '5. Strategic improvements for performance',
-    '',
-    'Format your response clearly with sections and bullet points.',
-    'Be specific, technical, but also accessible.',
-    'Focus on actionable insights that can improve race performance.'
-  )
+  if (isSimpleQuestion) {
+    parts.push(
+      '=== INSTRUCTIONS ===',
+      'This is a simple, direct question. Provide a concise, focused answer:',
+      '- Give a direct answer in 2-3 sentences',
+      '- Include 1-2 specific data points or metrics if relevant',
+      '- Keep it brief and actionable',
+      '- Use plain text (no markdown formatting)',
+      '- Avoid lengthy explanations or multiple sections'
+    )
+  } else {
+    parts.push(
+      '=== INSTRUCTIONS ===',
+      'Provide a clear, structured analysis:',
+      '1. Direct answer to the user\'s question (2-3 sentences)',
+      '2. Key findings (3-4 bullet points)',
+      '3. Specific recommendations (2-3 actionable items)',
+      '4. Numerical insights where relevant',
+      '',
+      'IMPORTANT FORMATTING RULES:',
+      '- Use plain text only (NO markdown, NO asterisks, NO bold, NO headers)',
+      '- Use simple bullet points with dashes (-)',
+      '- Keep paragraphs short (2-3 sentences max)',
+      '- Be concise and technical but accessible',
+      '- Focus on actionable insights'
+    )
+  }
   
   return parts.join('\n')
 }
@@ -129,30 +146,51 @@ export async function POST(request) {
       )
     }
     
-    // Extract key findings
+    // Clean up markdown formatting from response
+    responseText = responseText
+      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
+      .replace(/\*(.*?)\*/g, '$1') // Remove italic
+      .replace(/###\s*/g, '') // Remove ### headers
+      .replace(/##\s*/g, '') // Remove ## headers
+      .replace(/#\s*/g, '') // Remove # headers
+      .replace(/`(.*?)`/g, '$1') // Remove code backticks
+      .replace(/\n{3,}/g, '\n\n') // Remove excessive newlines
+    
+    // Extract key findings - look for bullet points and key phrases
     const keyFindings = []
     const lines = responseText.split('\n')
     
+    // Look for bullet points first
     for (const line of lines) {
-      if (line.match(/finding|insight|recommendation|improvement/i)) {
-        if (line.trim() && !line.trim().startsWith('#')) {
-          keyFindings.push(line.trim())
+      const trimmed = line.trim()
+      // Match bullet points (dash, asterisk, or numbered)
+      if (trimmed.match(/^[-•*]\s+/) || trimmed.match(/^\d+\.\s+/)) {
+        // Clean up the bullet point
+        const clean = trimmed.replace(/^[-•*]\s+/, '').replace(/^\d+\.\s+/, '').trim()
+        if (clean.length > 20 && clean.length < 200) {
+          keyFindings.push(clean)
         }
       }
     }
     
-    // If no explicit findings, extract first few bullet points
+    // If no bullet points found, look for key phrases
     if (keyFindings.length === 0) {
-      for (const line of lines.slice(0, 10)) {
-        if (line.trim().match(/^[-•*]|^\d+\./)) {
-          keyFindings.push(line.trim())
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (trimmed.match(/finding|insight|recommendation|improvement|key|important/i)) {
+          if (trimmed.length > 20 && trimmed.length < 200 && !trimmed.startsWith('===')) {
+            keyFindings.push(trimmed)
+          }
         }
       }
     }
+    
+    // Limit to top 5 and ensure they're unique
+    const uniqueFindings = [...new Set(keyFindings)].slice(0, 5)
     
     return NextResponse.json({
       response: responseText,
-      key_findings: keyFindings.slice(0, 5), // Top 5 findings
+      key_findings: uniqueFindings,
       question: body.question
     })
     
