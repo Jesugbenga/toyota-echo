@@ -1,0 +1,13 @@
+{
+  "include": [
+    "api"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    ".next"
+  ],
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "basic"
+}
+
