@@ -43,3 +43,5 @@ ENV/
 # model files (if large, use Git LFS)
 # Uncomment if you want to ignore model files
 # /api/model/*.pkl
+
+.vercel
